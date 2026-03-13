@@ -2,6 +2,7 @@ import { useState } from "react";
 import DropZone from "@/components/DropZone";
 import FormatSelector, { type OutputFormat } from "@/components/FormatSelector";
 import QualitySlider from "@/components/QualitySlider";
+import TargetSizeInput, { type TargetSizeConfig } from "@/components/TargetSizeInput";
 import ResultsList from "@/components/ResultsList";
 import { convertAll, type ConvertedFile } from "@/lib/imageConverter";
 import { Button } from "@/components/ui/button";
@@ -11,15 +12,25 @@ export default function Index() {
   const [files, setFiles] = useState<File[]>([]);
   const [format, setFormat] = useState<OutputFormat>("webp");
   const [quality, setQuality] = useState(80);
+  const [targetSize, setTargetSize] = useState<TargetSizeConfig>({
+    enabled: false,
+    value: 100,
+    unit: "KB",
+  });
   const [converting, setConverting] = useState(false);
   const [results, setResults] = useState<ConvertedFile[]>([]);
+
+  const getTargetBytes = (): number | undefined => {
+    if (!targetSize.enabled) return undefined;
+    return targetSize.unit === "KB" ? targetSize.value * 1024 : targetSize.value * 1024 * 1024;
+  };
 
   const handleConvert = async () => {
     if (!files.length) return;
     setConverting(true);
     setResults([]);
     try {
-      const converted = await convertAll(files, format, quality);
+      const converted = await convertAll(files, format, quality, getTargetBytes());
       setResults(converted);
     } catch (err) {
       console.error(err);
@@ -29,14 +40,13 @@ export default function Index() {
   };
 
   const handleReset = () => {
-    results.forEach(r => URL.revokeObjectURL(r.url));
+    results.forEach((r) => URL.revokeObjectURL(r.url));
     setFiles([]);
     setResults([]);
   };
 
   return (
     <div className="min-h-screen bg-background" style={{ backgroundImage: "var(--gradient-surface)" }}>
-      {/* Header */}
       <header className="border-b border-border bg-card/60 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
@@ -49,7 +59,6 @@ export default function Index() {
         </div>
       </header>
 
-      {/* Hero */}
       <section className="max-w-3xl mx-auto px-4 pt-10 pb-6 text-center">
         <div className="inline-flex items-center gap-1.5 bg-primary/10 text-primary text-xs font-medium px-3 py-1 rounded-full mb-4">
           <Sparkles className="w-3 h-3" /> Free &middot; No upload &middot; 100% in-browser
@@ -62,19 +71,19 @@ export default function Index() {
         </p>
       </section>
 
-      {/* Main Card */}
       <main className="max-w-3xl mx-auto px-4 pb-16">
         <div className="bg-card border border-border rounded-2xl shadow-[var(--shadow-lg)] p-6 space-y-6">
           <DropZone
             files={files}
-            onFilesAdded={(newFiles) => { setFiles(prev => [...prev, ...newFiles]); setResults([]); }}
-            onRemoveFile={(i) => { setFiles(prev => prev.filter((_, idx) => idx !== i)); setResults([]); }}
+            onFilesAdded={(newFiles) => { setFiles((prev) => [...prev, ...newFiles]); setResults([]); }}
+            onRemoveFile={(i) => { setFiles((prev) => prev.filter((_, idx) => idx !== i)); setResults([]); }}
           />
 
           {files.length > 0 && (
             <>
               <FormatSelector selected={format} onChange={setFormat} />
               <QualitySlider quality={quality} onChange={setQuality} />
+              <TargetSizeInput config={targetSize} onChange={setTargetSize} />
 
               <div className="flex gap-3">
                 <Button
@@ -103,7 +112,6 @@ export default function Index() {
           )}
         </div>
 
-        {/* SEO text */}
         <div className="mt-12 text-center text-sm text-muted-foreground max-w-lg mx-auto space-y-2">
           <p className="font-display font-medium text-foreground">Why Pixel Forge?</p>
           <p>All conversions happen locally in your browser — no files are uploaded to any server. Convert PNG to WebP for faster websites, compress JPEG for smaller emails, or change formats for compatibility. Completely free, unlimited, and private.</p>
