@@ -44,8 +44,8 @@ export default function ResultsList({ results }: ResultsListProps) {
           </span>
         </div>
         {results.length > 1 && (
-          <Button onClick={downloadAll} size="sm" variant="outline" className="gap-2">
-            <Download className="w-4 h-4" /> Download All
+          <Button onClick={downloadAllZip} size="sm" variant="outline" className="gap-2">
+            <Archive className="w-4 h-4" /> Download ZIP
           </Button>
         )}
       </div>
