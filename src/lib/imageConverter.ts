@@ -1,5 +1,5 @@
-import type { OutputFormat } from "./FormatSelector";
-import { FORMAT_LIST } from "./FormatSelector";
+import type { OutputFormat } from "@/components/FormatSelector";
+import { FORMAT_LIST } from "@/components/FormatSelector";
 
 export interface ConvertedFile {
   name: string;
