@@ -1,7 +1,7 @@
-import { Download, Check, ArrowDown } from "lucide-react";
+import { Download, Check, ArrowDown, Archive } from "lucide-react";
 import type { ConvertedFile } from "@/lib/imageConverter";
 import { Button } from "@/components/ui/button";
-
+import JSZip from "jszip";
 interface ResultsListProps {
   results: ConvertedFile[];
 }
@@ -18,13 +18,16 @@ function savingPercent(orig: number, next: number) {
 }
 
 export default function ResultsList({ results }: ResultsListProps) {
-  const downloadAll = () => {
-    results.forEach(r => {
-      const a = document.createElement("a");
-      a.href = r.url;
-      a.download = r.name;
-      a.click();
-    });
+  const downloadAllZip = async () => {
+    const zip = new JSZip();
+    results.forEach(r => zip.file(r.name, r.blob));
+    const content = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "converted-images.zip";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const totalOriginal = results.reduce((s, r) => s + r.originalSize, 0);
@@ -41,8 +44,8 @@ export default function ResultsList({ results }: ResultsListProps) {
           </span>
         </div>
         {results.length > 1 && (
-          <Button onClick={downloadAll} size="sm" variant="outline" className="gap-2">
-            <Download className="w-4 h-4" /> Download All
+          <Button onClick={downloadAllZip} size="sm" variant="outline" className="gap-2">
+            <Archive className="w-4 h-4" /> Download ZIP
           </Button>
         )}
       </div>
