@@ -1,7 +1,7 @@
-import { Download, Check, ArrowDown } from "lucide-react";
+import { Download, Check, ArrowDown, Archive } from "lucide-react";
 import type { ConvertedFile } from "@/lib/imageConverter";
 import { Button } from "@/components/ui/button";
-
+import JSZip from "jszip";
 interface ResultsListProps {
   results: ConvertedFile[];
 }
