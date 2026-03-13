@@ -18,13 +18,16 @@ function savingPercent(orig: number, next: number) {
 }
 
 export default function ResultsList({ results }: ResultsListProps) {
-  const downloadAll = () => {
-    results.forEach(r => {
-      const a = document.createElement("a");
-      a.href = r.url;
-      a.download = r.name;
-      a.click();
-    });
+  const downloadAllZip = async () => {
+    const zip = new JSZip();
+    results.forEach(r => zip.file(r.name, r.blob));
+    const content = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "converted-images.zip";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const totalOriginal = results.reduce((s, r) => s + r.originalSize, 0);
