@@ -1,7 +1,10 @@
-import { Download, Check, ArrowDown, Archive } from "lucide-react";
+import { useState } from "react";
+import { Download, Check, ArrowDown, Archive, Eye } from "lucide-react";
 import type { ConvertedFile } from "@/lib/imageConverter";
 import { Button } from "@/components/ui/button";
+import BeforeAfterPreview from "@/components/BeforeAfterPreview";
 import JSZip from "jszip";
+
 interface ResultsListProps {
   results: ConvertedFile[];
 }
@@ -18,6 +21,8 @@ function savingPercent(orig: number, next: number) {
 }
 
 export default function ResultsList({ results }: ResultsListProps) {
+  const [compareIdx, setCompareIdx] = useState<number | null>(null);
+
   const downloadAllZip = async () => {
     const zip = new JSZip();
     results.forEach(r => zip.file(r.name, r.blob));
@@ -73,17 +78,33 @@ export default function ResultsList({ results }: ResultsListProps) {
                   </p>
                 </div>
               </div>
-              <a
-                href={r.url}
-                download={r.name}
-                className="shrink-0 w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
-              >
-                <Download className="w-4 h-4" />
-              </a>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => setCompareIdx(i)}
+                  className="w-8 h-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:bg-primary/10 hover:text-primary transition-colors"
+                  title="Compare before/after"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+                <a
+                  href={r.url}
+                  download={r.name}
+                  className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
+              </div>
             </div>
           );
         })}
       </div>
+
+      {compareIdx !== null && (
+        <BeforeAfterPreview
+          result={results[compareIdx]}
+          onClose={() => setCompareIdx(null)}
+        />
+      )}
     </div>
   );
 }

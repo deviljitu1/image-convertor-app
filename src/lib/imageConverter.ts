@@ -8,6 +8,7 @@ export interface ConvertedFile {
   newSize: number;
   format: OutputFormat;
   url: string;
+  originalUrl: string;
 }
 
 /**
@@ -143,6 +144,7 @@ export async function convertImage(
       newSize: file.size,
       format,
       url,
+      originalUrl: url,
     };
   }
 
@@ -159,6 +161,7 @@ export async function convertImage(
     blob = await convertAtQuality(img, mime, q, false);
   }
 
+  const originalUrl = URL.createObjectURL(file);
   const url = URL.createObjectURL(blob);
   return {
     name: replaceExt(file.name, format === "jpeg" ? "jpg" : format),
@@ -167,6 +170,7 @@ export async function convertImage(
     newSize: blob.size,
     format,
     url,
+    originalUrl,
   };
 }
 
