@@ -161,6 +161,7 @@ export async function convertImage(
     blob = await convertAtQuality(img, mime, q, false);
   }
 
+  const originalUrl = URL.createObjectURL(file);
   const url = URL.createObjectURL(blob);
   return {
     name: replaceExt(file.name, format === "jpeg" ? "jpg" : format),
@@ -169,6 +170,7 @@ export async function convertImage(
     newSize: blob.size,
     format,
     url,
+    originalUrl,
   };
 }
 
