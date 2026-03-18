@@ -8,6 +8,7 @@ export interface ConvertedFile {
   newSize: number;
   format: OutputFormat;
   url: string;
+  originalUrl: string;
 }
 
 /**
