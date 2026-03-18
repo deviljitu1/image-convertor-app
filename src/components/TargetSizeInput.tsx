@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Target } from "lucide-react";
@@ -38,16 +37,19 @@ export default function TargetSizeInput({ config, onChange }: TargetSizeInputPro
       </div>
 
       {config.enabled && (
-        <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            min={1}
-            step={1}
-            value={config.value}
-            onChange={(e) => handleValueChange(e.target.value)}
-            className="w-24 text-sm"
-            placeholder="Size"
-          />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">I want my image to be</span>
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              value={config.value}
+              onChange={(e) => handleValueChange(e.target.value)}
+              className="w-24 h-9 text-sm text-center font-semibold"
+              placeholder="e.g. 50"
+            />
+          </div>
           <div className="flex rounded-lg border border-border overflow-hidden">
             {(["KB", "MB"] as SizeUnit[]).map((u) => (
               <button
@@ -63,8 +65,8 @@ export default function TargetSizeInput({ config, onChange }: TargetSizeInputPro
               </button>
             ))}
           </div>
-          <span className="text-xs text-muted-foreground ml-1">
-            Auto-adjusts quality to hit target
+          <span className="text-xs text-muted-foreground">
+            Quality auto-adjusts to hit your target
           </span>
         </div>
       )}
