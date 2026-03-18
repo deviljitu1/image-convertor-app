@@ -10,18 +10,65 @@ export interface ConvertedFile {
   url: string;
 }
 
-/** Convert a single image at a specific quality (0–1) */
+/**
+ * Apply a subtle sharpening filter to maintain clarity after compression.
+ * Uses unsharp-mask technique via canvas convolution.
+ */
+function sharpenCanvas(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  amount: number = 0.3
+) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const srcData = ctx.getImageData(0, 0, w, h);
+  const src = srcData.data;
+  const dest = ctx.createImageData(w, h);
+  const d = dest.data;
+
+  // Simple unsharp: blend original with difference from box-blurred version
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = (y * w + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        // Average of 4 neighbors
+        const avg =
+          (src[((y - 1) * w + x) * 4 + c] +
+            src[((y + 1) * w + x) * 4 + c] +
+            src[(y * w + x - 1) * 4 + c] +
+            src[(y * w + x + 1) * 4 + c]) / 4;
+        const sharp = src[i + c] + (src[i + c] - avg) * amount;
+        d[i + c] = Math.max(0, Math.min(255, sharp));
+      }
+      d[i + 3] = src[i + 3]; // alpha
+    }
+  }
+  ctx.putImageData(dest, 0, 0);
+}
+
+/** Convert a single image at a specific quality (0–1), with optional sharpening */
 function convertAtQuality(
   img: HTMLImageElement,
   mime: string,
-  quality: number
+  quality: number,
+  applySharpen: boolean = false
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement("canvas");
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     const ctx = canvas.getContext("2d")!;
+
+    // Use high-quality image rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(img, 0, 0);
+
+    // Apply sharpening when compressing aggressively to preserve clarity
+    if (applySharpen) {
+      sharpenCanvas(canvas, ctx, 0.25);
+    }
+
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("Conversion failed"))),
       mime,
@@ -55,17 +102,20 @@ async function compressToTarget(
   targetBytes: number,
   maxQuality: number
 ): Promise<Blob> {
-  let lo = 0.01;
+  // Never go below 0.05 quality to preserve clarity
+  let lo = 0.05;
   let hi = maxQuality;
-  let bestBlob = await convertAtQuality(img, mime, hi);
+  let bestBlob = await convertAtQuality(img, mime, hi, false);
 
   // If even at max quality we're under target, return that
   if (bestBlob.size <= targetBytes) return bestBlob;
 
-  // Binary search for ~10 iterations
-  for (let i = 0; i < 12; i++) {
+  // Binary search for highest quality that fits target
+  for (let i = 0; i < 14; i++) {
     const mid = (lo + hi) / 2;
-    const blob = await convertAtQuality(img, mime, mid);
+    // Apply sharpening when quality drops below 0.5 to compensate for compression artifacts
+    const needsSharpen = mid < 0.5;
+    const blob = await convertAtQuality(img, mime, mid, needsSharpen);
     if (blob.size <= targetBytes) {
       bestBlob = blob;
       lo = mid;
@@ -106,7 +156,7 @@ export async function convertImage(
   if (targetBytes && targetBytes > 0) {
     blob = await compressToTarget(img, mime, targetBytes, q);
   } else {
-    blob = await convertAtQuality(img, mime, q);
+    blob = await convertAtQuality(img, mime, q, false);
   }
 
   const url = URL.createObjectURL(blob);
