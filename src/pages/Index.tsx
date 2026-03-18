@@ -100,6 +100,7 @@ export default function Index() {
               <FormatSelector selected={format} onChange={setFormat} />
               <QualitySlider quality={quality} onChange={setQuality} />
               <TargetSizeInput config={targetSize} onChange={setTargetSize} />
+              <BatchRename config={batchRename} onChange={setBatchRename} fileCount={files.length} />
 
               <div className="flex gap-3">
                 <Button
