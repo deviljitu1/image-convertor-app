@@ -3,6 +3,7 @@ import DropZone from "@/components/DropZone";
 import FormatSelector, { type OutputFormat } from "@/components/FormatSelector";
 import QualitySlider from "@/components/QualitySlider";
 import TargetSizeInput, { type TargetSizeConfig } from "@/components/TargetSizeInput";
+import BatchRename, { type BatchRenameConfig, applyRenamePattern } from "@/components/BatchRename";
 import ResultsList from "@/components/ResultsList";
 import { convertAll, type ConvertedFile } from "@/lib/imageConverter";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,10 @@ export default function Index() {
     value: 100,
     unit: "KB",
   });
+  const [batchRename, setBatchRename] = useState<BatchRenameConfig>({
+    enabled: false,
+    pattern: "{name}-compressed",
+  });
   const [converting, setConverting] = useState(false);
   const [results, setResults] = useState<ConvertedFile[]>([]);
 
@@ -30,7 +35,17 @@ export default function Index() {
     setConverting(true);
     setResults([]);
     try {
-      const converted = await convertAll(files, format, quality, getTargetBytes());
+      let converted = await convertAll(files, format, quality, getTargetBytes());
+
+      // Apply batch rename if enabled
+      if (batchRename.enabled && batchRename.pattern.trim()) {
+        const ext = format === "jpeg" ? "jpg" : format;
+        converted = converted.map((r, i) => ({
+          ...r,
+          name: applyRenamePattern(batchRename.pattern, files[i]?.name || r.name, i, ext),
+        }));
+      }
+
       setResults(converted);
     } catch (err) {
       console.error(err);
