@@ -1,23 +1,38 @@
-import { useCallback, useState } from "react";
-import { Upload, X, Image as ImageIcon } from "lucide-react";
+import { useCallback, useState, useRef } from "react";
+import { Upload, X, Image as ImageIcon, GripVertical } from "lucide-react";
 
 interface DropZoneProps {
   onFilesAdded: (files: File[]) => void;
   files: File[];
   onRemoveFile: (index: number) => void;
+  onReorder: (files: File[]) => void;
 }
 
 const ACCEPTED = "image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,image/svg+xml,image/avif,image/x-icon";
 
-export default function DropZone({ onFilesAdded, files, onRemoveFile }: DropZoneProps) {
+export default function DropZone({ onFilesAdded, files, onRemoveFile, onReorder }: DropZoneProps) {
   const [dragActive, setDragActive] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
+    // If reordering internally, handle that
+    if (dragIdx !== null && overIdx !== null && dragIdx !== overIdx) {
+      const reordered = [...files];
+      const [moved] = reordered.splice(dragIdx, 1);
+      reordered.splice(overIdx, 0, moved);
+      onReorder(reordered);
+      setDragIdx(null);
+      setOverIdx(null);
+      return;
+    }
+    setDragIdx(null);
+    setOverIdx(null);
     const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
     if (dropped.length) onFilesAdded(dropped);
-  }, [onFilesAdded]);
+  }, [onFilesAdded, files, onReorder, dragIdx, overIdx]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -25,11 +40,22 @@ export default function DropZone({ onFilesAdded, files, onRemoveFile }: DropZone
     e.target.value = "";
   }, [onFilesAdded]);
 
+  const handleItemDragEnd = () => {
+    if (dragIdx !== null && overIdx !== null && dragIdx !== overIdx) {
+      const reordered = [...files];
+      const [moved] = reordered.splice(dragIdx, 1);
+      reordered.splice(overIdx, 0, moved);
+      onReorder(reordered);
+    }
+    setDragIdx(null);
+    setOverIdx(null);
+  };
+
   return (
     <div
       className={`drop-zone ${dragActive ? "drop-zone-active" : ""} p-8 md:p-12 text-center`}
-      onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-      onDragLeave={() => setDragActive(false)}
+      onDragOver={(e) => { e.preventDefault(); if (dragIdx === null) setDragActive(true); }}
+      onDragLeave={() => { if (dragIdx === null) setDragActive(false); }}
       onDrop={handleDrop}
     >
       {files.length === 0 ? (
@@ -49,11 +75,23 @@ export default function DropZone({ onFilesAdded, files, onRemoveFile }: DropZone
         </label>
       ) : (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-3 justify-center">
+          <div className="flex flex-wrap gap-2 justify-center">
             {files.map((f, i) => (
-              <div key={i} className="relative group bg-card rounded-lg p-2 shadow-[var(--shadow-sm)] flex items-center gap-2 pr-8 border border-border">
+              <div
+                key={`${f.name}-${i}`}
+                draggable
+                onDragStart={() => setDragIdx(i)}
+                onDragOver={(e) => { e.preventDefault(); setOverIdx(i); }}
+                onDragEnd={handleItemDragEnd}
+                className={`relative group bg-card rounded-lg p-2 shadow-[var(--shadow-sm)] flex items-center gap-1.5 pr-8 border transition-all cursor-grab active:cursor-grabbing ${
+                  overIdx === i && dragIdx !== null && dragIdx !== i
+                    ? "border-primary ring-1 ring-primary/30"
+                    : "border-border"
+                } ${dragIdx === i ? "opacity-40" : ""}`}
+              >
+                <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
                 <ImageIcon className="w-4 h-4 text-primary shrink-0" />
-                <span className="text-sm font-medium text-foreground truncate max-w-[180px]">{f.name}</span>
+                <span className="text-sm font-medium text-foreground truncate max-w-[160px]">{f.name}</span>
                 <span className="text-xs text-muted-foreground">({(f.size / 1024).toFixed(0)} KB)</span>
                 <button
                   onClick={() => onRemoveFile(i)}
