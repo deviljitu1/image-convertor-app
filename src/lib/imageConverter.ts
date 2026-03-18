@@ -144,6 +144,7 @@ export async function convertImage(
       newSize: file.size,
       format,
       url,
+      originalUrl: url,
     };
   }
 
