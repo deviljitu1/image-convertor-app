@@ -92,6 +92,7 @@ export default function Index() {
             files={files}
             onFilesAdded={(newFiles) => { setFiles((prev) => [...prev, ...newFiles]); setResults([]); }}
             onRemoveFile={(i) => { setFiles((prev) => prev.filter((_, idx) => idx !== i)); setResults([]); }}
+            onReorder={(reordered) => { setFiles(reordered); setResults([]); }}
           />
 
           {files.length > 0 && (
