@@ -102,17 +102,20 @@ async function compressToTarget(
   targetBytes: number,
   maxQuality: number
 ): Promise<Blob> {
-  let lo = 0.01;
+  // Never go below 0.05 quality to preserve clarity
+  let lo = 0.05;
   let hi = maxQuality;
-  let bestBlob = await convertAtQuality(img, mime, hi);
+  let bestBlob = await convertAtQuality(img, mime, hi, false);
 
   // If even at max quality we're under target, return that
   if (bestBlob.size <= targetBytes) return bestBlob;
 
-  // Binary search for ~10 iterations
-  for (let i = 0; i < 12; i++) {
+  // Binary search for highest quality that fits target
+  for (let i = 0; i < 14; i++) {
     const mid = (lo + hi) / 2;
-    const blob = await convertAtQuality(img, mime, mid);
+    // Apply sharpening when quality drops below 0.5 to compensate for compression artifacts
+    const needsSharpen = mid < 0.5;
+    const blob = await convertAtQuality(img, mime, mid, needsSharpen);
     if (blob.size <= targetBytes) {
       bestBlob = blob;
       lo = mid;
