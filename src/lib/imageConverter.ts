@@ -156,7 +156,7 @@ export async function convertImage(
   if (targetBytes && targetBytes > 0) {
     blob = await compressToTarget(img, mime, targetBytes, q);
   } else {
-    blob = await convertAtQuality(img, mime, q);
+    blob = await convertAtQuality(img, mime, q, false);
   }
 
   const url = URL.createObjectURL(blob);
