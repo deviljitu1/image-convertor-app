@@ -44,6 +44,19 @@ export default function Index() {
           ...r,
           name: applyRenamePattern(batchRename.pattern, files[i]?.name || r.name, i, ext),
         }));
+        // Deduplicate names: if any names collide, append -1, -2, etc.
+        const nameCounts = new Map<string, number>();
+        converted = converted.map((r) => {
+          const count = nameCounts.get(r.name) || 0;
+          nameCounts.set(r.name, count + 1);
+          if (count > 0) {
+            const dot = r.name.lastIndexOf(".");
+            const base = dot > 0 ? r.name.substring(0, dot) : r.name;
+            const extension = dot > 0 ? r.name.substring(dot) : "";
+            return { ...r, name: `${base}-${count}${extension}` };
+          }
+          return r;
+        });
       }
 
       setResults(converted);
