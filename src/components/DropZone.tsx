@@ -9,7 +9,29 @@ interface DropZoneProps {
   onReorder: (files: File[]) => void;
 }
 
-const ACCEPTED = "image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,image/svg+xml,image/avif,image/x-icon";
+const ACCEPTED = "image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,image/svg+xml,image/avif,image/x-icon,application/zip,application/x-zip-compressed";
+
+const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".tif", ".svg", ".avif", ".ico"];
+
+async function extractImagesFromZip(file: File): Promise<File[]> {
+  const zip = await JSZip.loadAsync(file);
+  const images: File[] = [];
+  const entries = Object.entries(zip.files).filter(
+    ([name, entry]) => !entry.dir && IMAGE_EXTS.some(ext => name.toLowerCase().endsWith(ext))
+  );
+  for (const [name, entry] of entries) {
+    const blob = await entry.async("blob");
+    const fileName = name.split("/").pop() || name;
+    const ext = fileName.split(".").pop()?.toLowerCase() || "";
+    const mimeMap: Record<string, string> = {
+      png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
+      gif: "image/gif", bmp: "image/bmp", tiff: "image/tiff", tif: "image/tiff",
+      svg: "image/svg+xml", avif: "image/avif", ico: "image/x-icon",
+    };
+    images.push(new File([blob], fileName, { type: mimeMap[ext] || "image/png" }));
+  }
+  return images;
+}
 
 export default function DropZone({ onFilesAdded, files, onRemoveFile, onReorder }: DropZoneProps) {
   const [dragActive, setDragActive] = useState(false);
