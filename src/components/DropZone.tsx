@@ -53,15 +53,28 @@ export default function DropZone({ onFilesAdded, files, onRemoveFile, onReorder 
     }
     setDragIdx(null);
     setOverIdx(null);
-    const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
-    if (dropped.length) onFilesAdded(dropped);
+    const dropped = Array.from(e.dataTransfer.files);
+    processFiles(dropped);
   }, [onFilesAdded, files, onReorder, dragIdx, overIdx]);
+
+  const processFiles = useCallback(async (selected: File[]) => {
+    const images: File[] = [];
+    for (const f of selected) {
+      if (f.type === "application/zip" || f.type === "application/x-zip-compressed" || f.name.toLowerCase().endsWith(".zip")) {
+        const extracted = await extractImagesFromZip(f);
+        images.push(...extracted);
+      } else if (f.type.startsWith("image/")) {
+        images.push(f);
+      }
+    }
+    if (images.length) onFilesAdded(images);
+  }, [onFilesAdded]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    if (selected.length) onFilesAdded(selected);
+    processFiles(selected);
     e.target.value = "";
-  }, [onFilesAdded]);
+  }, [processFiles]);
 
   const handleItemDragEnd = () => {
     if (dragIdx !== null && overIdx !== null && dragIdx !== overIdx) {
