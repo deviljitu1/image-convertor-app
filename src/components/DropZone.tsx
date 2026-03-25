@@ -101,10 +101,13 @@ export default function DropZone({ onFilesAdded, files, onRemoveFile, onReorder 
           </div>
           <div>
             <p className="text-lg font-display font-semibold text-foreground">
-              Drop images here or click to upload
+              Drop images or ZIP file here, or click to upload
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1.5">
               PNG, JPG, WebP, GIF, BMP, TIFF, SVG, AVIF, ICO
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-xs font-medium">
+                <FileArchive className="w-3 h-3" /> ZIP
+              </span>
             </p>
           </div>
           <input type="file" className="hidden" accept={ACCEPTED} multiple onChange={handleChange} />
