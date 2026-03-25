@@ -20,7 +20,7 @@ export default function Index() {
   });
   const [batchRename, setBatchRename] = useState<BatchRenameConfig>({
     enabled: false,
-    pattern: "{name}-compressed",
+    pattern: "{name}-{n}",
   });
   const [converting, setConverting] = useState(false);
   const [results, setResults] = useState<ConvertedFile[]>([]);
