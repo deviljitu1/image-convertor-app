@@ -1,5 +1,6 @@
-import { useCallback, useState, useRef } from "react";
-import { Upload, X, Image as ImageIcon, GripVertical } from "lucide-react";
+import { useCallback, useState } from "react";
+import { Upload, X, Image as ImageIcon, GripVertical, FileArchive } from "lucide-react";
+import JSZip from "jszip";
 
 interface DropZoneProps {
   onFilesAdded: (files: File[]) => void;
@@ -8,7 +9,29 @@ interface DropZoneProps {
   onReorder: (files: File[]) => void;
 }
 
-const ACCEPTED = "image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,image/svg+xml,image/avif,image/x-icon";
+const ACCEPTED = "image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,image/svg+xml,image/avif,image/x-icon,application/zip,application/x-zip-compressed";
+
+const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".tif", ".svg", ".avif", ".ico"];
+
+async function extractImagesFromZip(file: File): Promise<File[]> {
+  const zip = await JSZip.loadAsync(file);
+  const images: File[] = [];
+  const entries = Object.entries(zip.files).filter(
+    ([name, entry]) => !entry.dir && IMAGE_EXTS.some(ext => name.toLowerCase().endsWith(ext))
+  );
+  for (const [name, entry] of entries) {
+    const blob = await entry.async("blob");
+    const fileName = name.split("/").pop() || name;
+    const ext = fileName.split(".").pop()?.toLowerCase() || "";
+    const mimeMap: Record<string, string> = {
+      png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
+      gif: "image/gif", bmp: "image/bmp", tiff: "image/tiff", tif: "image/tiff",
+      svg: "image/svg+xml", avif: "image/avif", ico: "image/x-icon",
+    };
+    images.push(new File([blob], fileName, { type: mimeMap[ext] || "image/png" }));
+  }
+  return images;
+}
 
 export default function DropZone({ onFilesAdded, files, onRemoveFile, onReorder }: DropZoneProps) {
   const [dragActive, setDragActive] = useState(false);
@@ -30,15 +53,28 @@ export default function DropZone({ onFilesAdded, files, onRemoveFile, onReorder 
     }
     setDragIdx(null);
     setOverIdx(null);
-    const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
-    if (dropped.length) onFilesAdded(dropped);
+    const dropped = Array.from(e.dataTransfer.files);
+    processFiles(dropped);
   }, [onFilesAdded, files, onReorder, dragIdx, overIdx]);
+
+  const processFiles = useCallback(async (selected: File[]) => {
+    const images: File[] = [];
+    for (const f of selected) {
+      if (f.type === "application/zip" || f.type === "application/x-zip-compressed" || f.name.toLowerCase().endsWith(".zip")) {
+        const extracted = await extractImagesFromZip(f);
+        images.push(...extracted);
+      } else if (f.type.startsWith("image/")) {
+        images.push(f);
+      }
+    }
+    if (images.length) onFilesAdded(images);
+  }, [onFilesAdded]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    if (selected.length) onFilesAdded(selected);
+    processFiles(selected);
     e.target.value = "";
-  }, [onFilesAdded]);
+  }, [processFiles]);
 
   const handleItemDragEnd = () => {
     if (dragIdx !== null && overIdx !== null && dragIdx !== overIdx) {
@@ -65,10 +101,13 @@ export default function DropZone({ onFilesAdded, files, onRemoveFile, onReorder 
           </div>
           <div>
             <p className="text-lg font-display font-semibold text-foreground">
-              Drop images here or click to upload
+              Drop images or ZIP file here, or click to upload
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1.5">
               PNG, JPG, WebP, GIF, BMP, TIFF, SVG, AVIF, ICO
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-xs font-medium">
+                <FileArchive className="w-3 h-3" /> ZIP
+              </span>
             </p>
           </div>
           <input type="file" className="hidden" accept={ACCEPTED} multiple onChange={handleChange} />
