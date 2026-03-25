@@ -1,5 +1,6 @@
 import type { OutputFormat } from "@/components/FormatSelector";
 import { FORMAT_LIST } from "@/components/FormatSelector";
+import type { ResizeConfig } from "@/components/ImageResize";
 
 export interface ConvertedFile {
   name: string;
@@ -11,10 +12,6 @@ export interface ConvertedFile {
   originalUrl: string;
 }
 
-/**
- * Apply a subtle sharpening filter to maintain clarity after compression.
- * Uses unsharp-mask technique via canvas convolution.
- */
 function sharpenCanvas(
   canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,
@@ -27,12 +24,10 @@ function sharpenCanvas(
   const dest = ctx.createImageData(w, h);
   const d = dest.data;
 
-  // Simple unsharp: blend original with difference from box-blurred version
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       const i = (y * w + x) * 4;
       for (let c = 0; c < 3; c++) {
-        // Average of 4 neighbors
         const avg =
           (src[((y - 1) * w + x) * 4 + c] +
             src[((y + 1) * w + x) * 4 + c] +
@@ -41,31 +36,62 @@ function sharpenCanvas(
         const sharp = src[i + c] + (src[i + c] - avg) * amount;
         d[i + c] = Math.max(0, Math.min(255, sharp));
       }
-      d[i + 3] = src[i + 3]; // alpha
+      d[i + 3] = src[i + 3];
     }
   }
   ctx.putImageData(dest, 0, 0);
 }
 
-/** Convert a single image at a specific quality (0–1), with optional sharpening */
+function getResizedDimensions(
+  naturalWidth: number,
+  naturalHeight: number,
+  resize?: ResizeConfig
+): { width: number; height: number } {
+  if (!resize || !resize.enabled) return { width: naturalWidth, height: naturalHeight };
+
+  if (resize.mode === "percentage") {
+    const scale = resize.percentage / 100;
+    return {
+      width: Math.round(naturalWidth * scale),
+      height: Math.round(naturalHeight * scale),
+    };
+  }
+
+  // Pixels mode
+  if (resize.maintainAspectRatio) {
+    if (resize.width > 0) {
+      const ratio = resize.width / naturalWidth;
+      return { width: resize.width, height: Math.round(naturalHeight * ratio) };
+    }
+    if (resize.height > 0) {
+      const ratio = resize.height / naturalHeight;
+      return { width: Math.round(naturalWidth * ratio), height: resize.height };
+    }
+  }
+
+  return {
+    width: resize.width > 0 ? resize.width : naturalWidth,
+    height: resize.height > 0 ? resize.height : naturalHeight,
+  };
+}
+
 function convertAtQuality(
   img: HTMLImageElement,
   mime: string,
   quality: number,
-  applySharpen: boolean = false
+  applySharpen: boolean = false,
+  resize?: ResizeConfig
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
+    const { width, height } = getResizedDimensions(img.naturalWidth, img.naturalHeight, resize);
     const canvas = document.createElement("canvas");
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext("2d")!;
-
-    // Use high-quality image rendering
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(img, 0, 0);
+    ctx.drawImage(img, 0, 0, width, height);
 
-    // Apply sharpening when compressing aggressively to preserve clarity
     if (applySharpen) {
       sharpenCanvas(canvas, ctx, 0.25);
     }
@@ -78,45 +104,40 @@ function convertAtQuality(
   });
 }
 
-/** Load File into an HTMLImageElement */
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    const reader = new FileReader();
-    reader.onload = () => {
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("Failed to load image"));
-      img.src = reader.result as string;
+    // Use createObjectURL for large files instead of readAsDataURL (avoids memory issues)
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
     };
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load image"));
+    };
+    img.src = url;
   });
 }
 
-/**
- * Binary-search quality to get the blob as close to targetBytes as possible
- * while keeping quality as high as we can.
- */
 async function compressToTarget(
   img: HTMLImageElement,
   mime: string,
   targetBytes: number,
-  maxQuality: number
+  maxQuality: number,
+  resize?: ResizeConfig
 ): Promise<Blob> {
-  // Never go below 0.05 quality to preserve clarity
   let lo = 0.05;
   let hi = maxQuality;
-  let bestBlob = await convertAtQuality(img, mime, hi, false);
+  let bestBlob = await convertAtQuality(img, mime, hi, false, resize);
 
-  // If even at max quality we're under target, return that
   if (bestBlob.size <= targetBytes) return bestBlob;
 
-  // Binary search for highest quality that fits target
   for (let i = 0; i < 14; i++) {
     const mid = (lo + hi) / 2;
-    // Apply sharpening when quality drops below 0.5 to compensate for compression artifacts
     const needsSharpen = mid < 0.5;
-    const blob = await convertAtQuality(img, mime, mid, needsSharpen);
+    const blob = await convertAtQuality(img, mime, mid, needsSharpen, resize);
     if (blob.size <= targetBytes) {
       bestBlob = blob;
       lo = mid;
@@ -132,9 +153,9 @@ export async function convertImage(
   file: File,
   format: OutputFormat,
   quality: number,
-  targetBytes?: number
+  targetBytes?: number,
+  resize?: ResizeConfig
 ): Promise<ConvertedFile> {
-  // SVG passthrough
   if (file.type === "image/svg+xml" && format === "svg") {
     const url = URL.createObjectURL(file);
     return {
@@ -156,9 +177,9 @@ export async function convertImage(
   let blob: Blob;
 
   if (targetBytes && targetBytes > 0) {
-    blob = await compressToTarget(img, mime, targetBytes, q);
+    blob = await compressToTarget(img, mime, targetBytes, q, resize);
   } else {
-    blob = await convertAtQuality(img, mime, q, false);
+    blob = await convertAtQuality(img, mime, q, false, resize);
   }
 
   const originalUrl = URL.createObjectURL(file);
@@ -180,11 +201,31 @@ function replaceExt(name: string, ext: string): string {
   return `${base}.${ext}`;
 }
 
+/** Convert files one-by-one for better memory handling and progress tracking */
+export async function convertAllSequential(
+  files: File[],
+  format: OutputFormat,
+  quality: number,
+  targetBytes?: number,
+  resize?: ResizeConfig,
+  onProgress?: (current: number, fileName: string) => void
+): Promise<ConvertedFile[]> {
+  const results: ConvertedFile[] = [];
+  for (let i = 0; i < files.length; i++) {
+    onProgress?.(i, files[i].name);
+    const result = await convertImage(files[i], format, quality, targetBytes, resize);
+    results.push(result);
+  }
+  onProgress?.(files.length, "");
+  return results;
+}
+
 export async function convertAll(
   files: File[],
   format: OutputFormat,
   quality: number,
-  targetBytes?: number
+  targetBytes?: number,
+  resize?: ResizeConfig
 ): Promise<ConvertedFile[]> {
-  return Promise.all(files.map((f) => convertImage(f, format, quality, targetBytes)));
+  return Promise.all(files.map((f) => convertImage(f, format, quality, targetBytes, resize)));
 }
