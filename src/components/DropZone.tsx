@@ -1,5 +1,6 @@
-import { useCallback, useState, useRef } from "react";
-import { Upload, X, Image as ImageIcon, GripVertical } from "lucide-react";
+import { useCallback, useState } from "react";
+import { Upload, X, Image as ImageIcon, GripVertical, FileArchive } from "lucide-react";
+import JSZip from "jszip";
 
 interface DropZoneProps {
   onFilesAdded: (files: File[]) => void;
