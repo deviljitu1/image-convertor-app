@@ -47,6 +47,18 @@ export default function Index() {
       }
 
       setResults(converted);
+
+      // Auto-download as ZIP
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      converted.forEach((r) => zip.file(r.name, r.blob));
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const zipUrl = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = zipUrl;
+      a.download = "converted-images.zip";
+      a.click();
+      URL.revokeObjectURL(zipUrl);
     } catch (err) {
       console.error(err);
     } finally {
