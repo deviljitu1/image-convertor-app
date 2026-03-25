@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Check, ArrowDown, Archive, Eye } from "lucide-react";
+import { Download, Check, ArrowDown, Archive, Eye, Sparkles } from "lucide-react";
 import type { ConvertedFile } from "@/lib/imageConverter";
 import { Button } from "@/components/ui/button";
 import BeforeAfterPreview from "@/components/BeforeAfterPreview";
@@ -26,7 +26,7 @@ export default function ResultsList({ results }: ResultsListProps) {
   const downloadAllZip = async () => {
     const zip = new JSZip();
     results.forEach(r => zip.file(r.name, r.blob));
-    const content = await zip.generateAsync({ type: "blob" });
+    const content = await zip.generateAsync({ type: "blob", streamFiles: true });
     const url = URL.createObjectURL(content);
     const a = document.createElement("a");
     a.href = url;
@@ -40,48 +40,54 @@ export default function ResultsList({ results }: ResultsListProps) {
   const totalSaved = savingPercent(totalOriginal, totalNew);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-in slide-in-from-bottom-4 fade-in duration-500">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Check className="w-5 h-5 text-accent" />
-          <span className="font-display font-semibold text-foreground">
-            {results.length} file{results.length > 1 ? "s" : ""} converted
+          <div className="w-7 h-7 rounded-full bg-success/10 flex items-center justify-center">
+            <Check className="w-4 h-4 text-success" />
+          </div>
+          <span className="font-display font-bold text-foreground">
+            {results.length} file{results.length > 1 ? "s" : ""} ready
           </span>
         </div>
-        {results.length > 1 && (
-          <Button onClick={downloadAllZip} size="sm" variant="outline" className="gap-2">
-            <Archive className="w-4 h-4" /> Download ZIP
-          </Button>
-        )}
+        <Button onClick={downloadAllZip} size="sm" className="gap-2 font-display" style={{ background: "var(--gradient-accent)" }}>
+          <Archive className="w-4 h-4" /> Download ZIP
+        </Button>
       </div>
 
+      {/* Savings banner */}
       {totalSaved > 0 && (
-        <div className="bg-accent/10 text-accent rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2">
-          <ArrowDown className="w-4 h-4" />
-          Total savings: {formatSize(totalOriginal - totalNew)} ({totalSaved}% smaller)
+        <div className="bg-success/10 border border-success/20 text-success rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2">
+          <Sparkles className="w-4 h-4" />
+          You saved {formatSize(totalOriginal - totalNew)} ({totalSaved}% smaller)
+          <span className="text-success/70 ml-auto text-xs">
+            {formatSize(totalOriginal)} → {formatSize(totalNew)}
+          </span>
         </div>
       )}
 
-      <div className="space-y-2">
+      {/* File list */}
+      <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
         {results.map((r, i) => {
           const saved = savingPercent(r.originalSize, r.newSize);
           return (
-            <div key={i} className="bg-card border border-border rounded-lg p-3 flex items-center justify-between gap-3 shadow-[var(--shadow-sm)]">
+            <div key={i} className="bg-background/50 border border-border/50 rounded-xl p-3 flex items-center justify-between gap-3 hover:border-border transition-colors">
               <div className="flex items-center gap-3 min-w-0">
-                <img src={r.url} alt="" className="w-10 h-10 rounded object-cover bg-muted shrink-0" />
+                <img src={r.url} alt="" className="w-11 h-11 rounded-lg object-cover bg-muted shrink-0 border border-border" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{r.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {formatSize(r.originalSize)} → {formatSize(r.newSize)}
-                    {saved > 0 && <span className="text-accent ml-1">(-{saved}%)</span>}
-                    {saved < 0 && <span className="text-warning ml-1">(+{Math.abs(saved)}%)</span>}
+                    {saved > 0 && <span className="text-success font-medium ml-1.5">-{saved}%</span>}
+                    {saved < 0 && <span className="text-warning font-medium ml-1.5">+{Math.abs(saved)}%</span>}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => setCompareIdx(i)}
-                  className="w-8 h-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:bg-primary/10 hover:text-primary transition-colors"
+                  className="w-8 h-8 rounded-lg bg-muted/50 text-muted-foreground flex items-center justify-center hover:bg-primary/10 hover:text-primary transition-colors"
                   title="Compare before/after"
                 >
                   <Eye className="w-4 h-4" />
@@ -90,6 +96,7 @@ export default function ResultsList({ results }: ResultsListProps) {
                   href={r.url}
                   download={r.name}
                   className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                  title="Download"
                 >
                   <Download className="w-4 h-4" />
                 </a>
